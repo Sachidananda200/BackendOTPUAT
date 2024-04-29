@@ -8,15 +8,15 @@ const port = 3000;
 
 app.use(bodyParser.json());
 
-let dbDetails = null; // Variable to store database details
+let pool; // Database connection pool
 
 // Function to create a new database connection pool
-async function createPool() {
+async function createPool(dbDetails) {
     try {
         if (!dbDetails) {
             throw new Error('Database details not set');
         }
-        const pool = mysql.createPool({
+        pool = mysql.createPool({
             host: dbDetails.host,
             user: dbDetails.user,
             password: dbDetails.password,
@@ -27,7 +27,6 @@ async function createPool() {
         });
 
         console.log('Database connection pool created');
-        return pool;
     } catch (error) {
         console.log('Error creating database connection pool:', error);
         throw error;
@@ -35,7 +34,7 @@ async function createPool() {
 }
 
 // Function to create SMS data table
-async function createSmsDataTable(pool) {
+async function createSmsDataTable() {
     try {
         const connection = await pool.getConnection();
         await connection.query(`
@@ -62,7 +61,7 @@ app.post('/validate_database', async (req, res) => {
     }
 
     // Store the received database details
-    dbDetails = {
+    const dbDetails = {
         host,
         user,
         password,
@@ -71,8 +70,8 @@ app.post('/validate_database', async (req, res) => {
 
     // Try to create a pool with the received database details
     try {
-        const pool = await createPool();
-        await createSmsDataTable(pool); // Create SMS data table for the new connection
+        await createPool(dbDetails);
+        await createSmsDataTable(); // Create SMS data table for the new connection
         // If successful, respond with success
         res.status(200).send('Database details validated successfully');
     } catch (error) {
@@ -89,16 +88,17 @@ app.post('/sms', async (req, res) => {
     }
 
     try {
+        if (!pool) {
+            throw new Error('Database connection pool not initialized');
+        }
+
         // Extract OTP from message
         const otpRegex = /\b\d{4,6}|\b\d{16}\b/;
         const otpMatch = message.match(otpRegex);
         const otp = otpMatch ? otpMatch[0] : null;
         const Messege_time = moment(message_time).format('YYYY/MM/DD HH:mm:ss');
         
-        // Get connection pool
-        const pool = await createPool();
-
-        // Store data in the database
+        // Get connection from the pool
         const connection = await pool.getConnection();
         await connection.query('INSERT INTO IGRS_Message (sender, Messege_time, message, otp, user_mobile) VALUES (?, ?, ?, ?, ?)', [sender, Messege_time, message, otp, user_mobile]);
         connection.release();
