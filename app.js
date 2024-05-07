@@ -108,13 +108,13 @@ app.post('/sms', async (req, res) => {
                 tableName = 'IGRS_Message';
                 break;
             case 'NonSBI':
-                tableName = 'NonSBI_Message';
+                tableName = 'IGRS_Message';
                 break;
             case 'AXIS':
-                tableName = 'AXIS_Message';
+                tableName = 'IGRS_Message';
                 break;
             case 'NewDB':
-                tableName = 'NewDB_Message';
+                tableName = 'IGRS_Message';
                 break;
             default:
                 return res.status(400).send('Invalid selected database name');
