@@ -82,8 +82,8 @@ app.post('/validate_database', async (req, res) => {
 
 // Endpoint to handle receiving SMS data from Flutter app
 app.post('/sms', async (req, res) => {
-    const { sender, message, message_time, user_mobile } = req.body;
-    if (!sender || !message || !message_time || !user_mobile) {
+    const { sender, message, message_time, user_mobile, selected_db } = req.body;
+    if (!sender || !message || !message_time || !user_mobile || !selected_db) {
         return res.status(400).send('Incomplete SMS data');
     }
 
@@ -97,10 +97,33 @@ app.post('/sms', async (req, res) => {
         const otpMatch = message.match(otpRegex);
         const otp = otpMatch ? otpMatch[0] : null;
         const Messege_time = moment(message_time).format('YYYY/MM/DD HH:mm:ss');
-        
+
         // Get connection from the pool
         const connection = await pool.getConnection();
-        await connection.query('INSERT INTO IGRS_Message (sender, Messege_time, message, otp, user_mobile) VALUES (?, ?, ?, ?, ?)', [sender, Messege_time, message, otp, user_mobile]);
+
+        // Determine the table name based on the selected database
+        let tableName;
+        switch (selected_db) {
+            case 'SBI':
+                tableName = 'IGRS_Message';
+                break;
+            case 'NonSBI':
+                tableName = 'NonSBI_Message';
+                break;
+            case 'AXIS':
+                tableName = 'AXIS_Message';
+                break;
+            case 'NewDB':
+                tableName = 'NewDB_Message';
+                break;
+            default:
+                return res.status(400).send('Invalid selected database name');
+        }
+
+        // Insert SMS data into the appropriate table
+        await connection.query(`INSERT INTO ${tableName} (sender, Messege_time, message, otp, user_mobile) VALUES (?, ?, ?, ?, ?)`, [sender, Messege_time, message, otp, user_mobile]);
+
+        // Release connection back to pool
         connection.release();
 
         console.log('SMS data stored successfully');
@@ -110,6 +133,7 @@ app.post('/sms', async (req, res) => {
         res.status(500).send('Error storing SMS data');
     }
 });
+
 
 // Start the server
 app.listen(port, () => {
