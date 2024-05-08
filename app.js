@@ -24,10 +24,15 @@ async function createPool(databaseDetails) {
         });
         console.log('Database connection pool created');
     } catch (error) {
+        if (error.code === 'ER_ACCESS_DENIED_ERROR') {
+            console.log('Error creating database connection pool: Incorrect username or password');
+            return;
+        }
         console.log('Error creating database connection pool:', error);
         throw error;
     }
 }
+
 
 // Function to create SMS data table
 async function createSmsDataTable() {
