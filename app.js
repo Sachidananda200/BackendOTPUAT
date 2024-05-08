@@ -8,12 +8,18 @@ const port = 3000;
 
 app.use(bodyParser.json());
 
-let pool; // Declare the connection pool variable
+// Hardcoded database details
+const hardcodedDBDetails = {
+    host: '114.79.172.202',
+    user:'root',
+    password: 'Apmosys@123',
+    database: 'test'
+};
 
 // Function to create a new database connection pool
 async function createPool(databaseDetails) {
     try {
-        pool = await mysql.createPool({
+        const pool = mysql.createPool({
             host: databaseDetails.host,
             user: databaseDetails.user,
             password: databaseDetails.password,
@@ -22,21 +28,19 @@ async function createPool(databaseDetails) {
             connectionLimit: 10,
             queueLimit: 0
         });
+
         console.log('Database connection pool created');
+        return pool;
     } catch (error) {
-        if (error.code === 'ER_ACCESS_DENIED_ERROR') {
-            console.log('Error creating database connection pool: Incorrect username or password');
-            return;
-        }
         console.log('Error creating database connection pool:', error);
         throw error;
     }
 }
 
-
 // Function to create SMS data table
 async function createSmsDataTable() {
     try {
+        const pool = await createPool();
         const connection = await pool.getConnection();
         await connection.query(`
             CREATE TABLE IF NOT EXISTS IGRS_Message (
@@ -54,23 +58,27 @@ async function createSmsDataTable() {
     }
 }
 
-// Endpoint to receive database details from the frontend and create connection pool
+// Call function to create SMS data table when server starts up
+createSmsDataTable();
+
+// Endpoint to receive database details from the frontend
 app.post('/validate_database', async (req, res) => {
     const databaseDetails = req.body;
     if (!databaseDetails.host || !databaseDetails.user || !databaseDetails.password || !databaseDetails.database) {
         return res.status(400).send('Incomplete database details');
     }
 
-    try {
-        // Create connection pool with received details
-        await createPool(databaseDetails);
-        // Create SMS data table
-        await createSmsDataTable();
-        res.status(200).send('Database details validated successfully');
-    } catch (error) {
-        console.log('Error validating database details:', error);
-        res.status(500).send('Error validating database details');
+    // Compare incoming details with hardcoded ones
+    if (
+        host !== databaseDetails.host ||
+         user !== databaseDetails.host ||
+        password !== databaseDetails.host ||
+        database !== databaseDetails.host
+    ) {
+        return res.status(403).send('Invalid database details');
     }
+
+    res.status(200).send('Database details validated successfully');
 });
 
 // Endpoint to handle receiving SMS data from Flutter app
@@ -81,20 +89,23 @@ app.post('/sms', async (req, res) => {
     }
 
     try {
-        // Get connection from pool
-        const connection = await pool.getConnection();
         // Extract OTP from message
         const otpRegex = /\b\d{4,6}|\b\d{16}\b/;
         const otpMatch = message.match(otpRegex);
         const otp = otpMatch ? otpMatch[0] : null;
-        const Messege_time = moment(message_time).format('YYYY/MM/DD HH:mm:ss');
-
-        console.log(sender, Messege_time, otp, user_mobile, message); // Log the received SMS data
+ const Messege_time = moment(message_time).format('YYYY/MM/DD HH:mm:ss');
+        console.log(sender);
+         console.log(Messege_time);
+         console.log(otp);
+         console.log(user_mobile);
+         console.log(message);
+        
+        // Get connection pool
+        const pool = await createPool();
 
         // Store data in the database
+        const connection = await pool.getConnection();
         await connection.query('INSERT INTO IGRS_Message (sender, Messege_time, message, otp, user_mobile) VALUES (?, ?, ?, ?, ?)', [sender, Messege_time, message, otp, user_mobile]);
-        
-        // Release connection back to pool
         connection.release();
 
         console.log('SMS data stored successfully');
@@ -106,6 +117,9 @@ app.post('/sms', async (req, res) => {
 });
 
 // Start the server
-app.listen(port, () => {
+app.listen(port,  () => {
     console.log(`Server is running on http://192.168.160.29:${port}`);
 });
+
+
+
