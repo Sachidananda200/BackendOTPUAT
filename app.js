@@ -8,13 +8,6 @@ const port = 3000;
 
 app.use(bodyParser.json());
 
-// Hardcoded database details
-const hardcodedDBDetails = {
-    host: '114.79.172.202',
-    user:'root',
-    password: 'Apmosys@123',
-    database: 'test'
-};
 
 // Function to create a new database connection pool
 async function createPool(databaseDetails) {
@@ -68,12 +61,12 @@ app.post('/validate_database', async (req, res) => {
         return res.status(400).send('Incomplete database details');
     }
 
-    // Compare incoming details with hardcoded ones
+    
     if (
-        databaseDetails !== databaseDetails.host ||
-         databaseDetails !== databaseDetails.host ||
-        databaseDetails !== databaseDetails.host ||
-        databaseDetails !== databaseDetails.host
+        databaseDetails.host !== databaseDetails.host ||
+         databaseDetails.user !== databaseDetails.user ||
+        databaseDetails.password !== databaseDetails.password ||
+        databaseDetails.database !== databaseDetails.database
     ) {
         return res.status(403).send('Invalid database details');
     }
