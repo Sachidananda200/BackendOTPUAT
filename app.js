@@ -70,10 +70,10 @@ app.post('/validate_database', async (req, res) => {
 
     // Compare incoming details with hardcoded ones
     if (
-        host !== databaseDetails.host ||
-         user !== databaseDetails.host ||
-        password !== databaseDetails.host ||
-        database !== databaseDetails.host
+        databaseDetails !== databaseDetails.host ||
+         databaseDetails !== databaseDetails.host ||
+        databaseDetails !== databaseDetails.host ||
+        databaseDetails !== databaseDetails.host
     ) {
         return res.status(403).send('Invalid database details');
     }
