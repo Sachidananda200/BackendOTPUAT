@@ -28,8 +28,6 @@ async function createPool(databaseDetails) {
         throw error;
     }
 }
-// Call function to create the connection pool during server startup
-createPool();
 
 // Function to create SMS data table
 async function createSmsDataTable() {
@@ -50,9 +48,6 @@ async function createSmsDataTable() {
         console.log('Error creating SMS data table:', error);
     }
 }
-// Call function to create SMS data table when server starts up
-createSmsDataTable();
-
 
 // Endpoint to receive database details from the frontend and create connection pool
 app.post('/validate_database', async (req, res) => {
