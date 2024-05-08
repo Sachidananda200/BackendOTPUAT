@@ -8,20 +8,16 @@ const port = 3000;
 
 app.use(bodyParser.json());
 
-// Global variables for database details
-let dbHost, dbUser, dbPassword, dbName;
-
-
 let pool; // Declare the connection pool variable
 
 // Function to create a new database connection pool
-async function createPool() {
+async function createPool(databaseDetails) {
     try {
         pool = await mysql.createPool({
-            host: dbHost,
-            user: dbUser,
-            password: dbPassword,
-            database: dbName,
+            host: databaseDetails.host,
+            user: databaseDetails.user,
+            password: databaseDetails.password,
+            database: databaseDetails.database,
             waitForConnections: true,
             connectionLimit: 10,
             queueLimit: 0
@@ -32,7 +28,6 @@ async function createPool() {
         throw error;
     }
 }
-
 // Call function to create the connection pool during server startup
 createPool();
 
@@ -55,28 +50,27 @@ async function createSmsDataTable() {
         console.log('Error creating SMS data table:', error);
     }
 }
-
 // Call function to create SMS data table when server starts up
 createSmsDataTable();
 
-// Endpoint to receive database details from the frontend
+
+// Endpoint to receive database details from the frontend and create connection pool
 app.post('/validate_database', async (req, res) => {
-    const { host, user, password, database } = req.body;
-    if (!host || !user || !password || !database) {
+    const databaseDetails = req.body;
+    if (!databaseDetails.host || !databaseDetails.user || !databaseDetails.password || !databaseDetails.database) {
         return res.status(400).send('Incomplete database details');
     }
 
-    // Compare incoming details with hardcoded ones
-    if (
-        host !== host ||
-        user !== user ||
-        password !== password ||
-        database !== database
-    ) {
-        return res.status(403).send('Invalid database details');
+    try {
+        // Create connection pool with received details
+        await createPool(databaseDetails);
+        // Create SMS data table
+        await createSmsDataTable();
+        res.status(200).send('Database details validated successfully');
+    } catch (error) {
+        console.log('Error validating database details:', error);
+        res.status(500).send('Error validating database details');
     }
-
-    res.status(200).send('Database details validated successfully');
 });
 
 // Endpoint to handle receiving SMS data from Flutter app
@@ -87,20 +81,19 @@ app.post('/sms', async (req, res) => {
     }
 
     try {
+        // Get connection from pool
+        const connection = await pool.getConnection();
         // Extract OTP from message
         const otpRegex = /\b\d{4,6}|\b\d{16}\b/;
         const otpMatch = message.match(otpRegex);
         const otp = otpMatch ? otpMatch[0] : null;
-
         const Messege_time = moment(message_time).format('YYYY/MM/DD HH:mm:ss');
-        console.log(sender, Messege_time, otp, user_mobile, message);
 
-        // Get connection from pool
-        const connection = await pool.getConnection();
+        console.log(sender, Messege_time, otp, user_mobile, message); // Log the received SMS data
 
         // Store data in the database
         await connection.query('INSERT INTO IGRS_Message (sender, Messege_time, message, otp, user_mobile) VALUES (?, ?, ?, ?, ?)', [sender, Messege_time, message, otp, user_mobile]);
-
+        
         // Release connection back to pool
         connection.release();
 
