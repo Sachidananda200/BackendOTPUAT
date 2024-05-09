@@ -79,7 +79,15 @@ app.post('/validate_database', async (req, res) => {
         return res.status(400).send('Incomplete database details');
     }
 
-    if (!validateDatabaseDetails(req.body)) {
+    // Find matching hardcoded database details
+    const matchingDetails = hardcodedDBDetails.find(db =>
+        db.host === host &&
+        db.user === user &&
+        db.password === password &&
+        db.database === database
+    );
+
+    if (!matchingDetails) {
         return res.status(403).send('Invalid database details');
     }
 
