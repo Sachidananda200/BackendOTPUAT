@@ -1,3 +1,4 @@
+
 const express = require('express');
 const mysql = require('mysql2/promise');
 const bodyParser = require('body-parser');
@@ -8,30 +9,51 @@ const port = 3000;
 
 app.use(bodyParser.json());
 
-// Global variables for database details
-let dbHost, dbUser, dbPassword, dbName;
+// Hardcoded database details for three databases
+const hardcodedDBDetails1 = {
+    host: '114.79.172.202',
+    user: 'root',
+    password: 'Apmosys@123',
+    database: 'test' // Change database name as needed
+};
+
+const hardcodedDBDetails2 = {
+    host: '114.79.172.204',
+    user: 'apmosys',
+    password: 'Apmosys@123',
+    database: 'test' // Change database name as needed
+};
+
+const hardcodedDBDetails3 = {
+    host: '192.168.12.74',
+    user: 'admin',
+    password: 'Apmosys@123',
+    database: 'test' // Change database name as needed
+};
 
 
 // Function to create a new database connection pool
-async function createPool() {
+async function createPool(dbDetails) {
     try {
         const pool = mysql.createPool({
-            host: dbHost,
-            user: dbUser,
-            password: dbPassword,
-            database: dbName,
+            host: dbDetails.host,
+            user: dbDetails.user,
+            password: dbDetails.password,
+            database: dbDetails.database,
             waitForConnections: true,
             connectionLimit: 10,
             queueLimit: 0
         });
 
-        console.log('Database connection pool created');
+        console.log('Database connection pool created for', dbDetails.database);
         return pool;
     } catch (error) {
         console.log('Error creating database connection pool:', error);
         throw error;
     }
 }
+
+
 // Function to create SMS data table
 async function createSmsDataTable() {
     try {
@@ -39,9 +61,8 @@ async function createSmsDataTable() {
         const connection = await pool.getConnection();
         await connection.query(`
             CREATE TABLE IF NOT EXISTS IGRS_Message (
-                id INT AUTO_INCREMENT PRIMARY KEY,
                 sender VARCHAR(255) NOT NULL,
-                message_time DATETIME NOT NULL,
+                Messege_time DATETIME NOT NULL,
                 message TEXT NOT NULL,
                 otp VARCHAR(10),
                 user_mobile VARCHAR(20) NOT NULL
@@ -64,18 +85,25 @@ app.post('/validate_database', async (req, res) => {
         return res.status(400).send('Incomplete database details');
     }
 
-    // Set global variables for database details
-    dbHost = host;
-    dbUser = user;
-    dbPassword = password;
-    dbName = database;
+    // Compare incoming details with hardcoded ones
+    if (
+        (host !== hardcodedDBDetails1.host || user !== hardcodedDBDetails1.user || 
+        password !== hardcodedDBDetails1.password || database !== hardcodedDBDetails1.database) ||
+        (host !== hardcodedDBDetails2.host || user !== hardcodedDBDetails2.user || 
+        password !== hardcodedDBDetails2.password || database !== hardcodedDBDetails2.database) ||
+        (host !== hardcodedDBDetails3.host || user !== hardcodedDBDetails3.user || 
+        password !== hardcodedDBDetails3.password || database !== hardcodedDBDetails3.database)
+    ) {
+        return res.status(403).send('Invalid database details');
+    }
 
-    res.status(200).send('Database details received successfully');
+    res.status(200).send('Database details validated successfully');
 });
+
 // Endpoint to handle receiving SMS data from Flutter app
 app.post('/sms', async (req, res) => {
-    const { sender, message, message_time, user_mobile } = req.body;
-    if (!sender || !message || !message_time || !user_mobile) {
+    const { sender, message, message_time, user_mobile, host } = req.body;
+    if (!sender || !message || !message_time || !user_mobile || !host) {
         return res.status(400).send('Incomplete SMS data');
     }
 
@@ -84,17 +112,27 @@ app.post('/sms', async (req, res) => {
         const otpRegex = /\b\d{4,6}|\b\d{16}\b/;
         const otpMatch = message.match(otpRegex);
         const otp = otpMatch ? otpMatch[0] : null;
+
         const Messege_time = moment(message_time).format('YYYY/MM/DD HH:mm:ss');
 
-        // Get active connection pool
-        const pool = activePool;
+        // Get connection pool based on selected database
+        let pool;
+        if (host === '114.79.172.202') {
+            pool = await createPool(hardcodedDBDetails1);
+        } else if (host === '114.79.172.204') {
+            pool = await createPool(hardcodedDBDetails2);
+        } else if (database === '192.168.12.74') {
+            pool = await createPool(hardcodedDBDetails3);
+        } else {
+            return res.status(400).send('Invalid database');
+        }
 
         // Store data in the database
         const connection = await pool.getConnection();
         await connection.query('INSERT INTO IGRS_Message (sender, Messege_time, message, otp, user_mobile) VALUES (?, ?, ?, ?, ?)', [sender, Messege_time, message, otp, user_mobile]);
         connection.release();
 
-        console.log('SMS data stored successfully');
+        console.log('SMS data stored successfully in', database);
         res.status(200).send('SMS data stored successfully');
     } catch (error) {
         console.log('Error storing SMS data:', error);
@@ -103,6 +141,8 @@ app.post('/sms', async (req, res) => {
 });
 
 // Start the server
-app.listen(port,() => {
+app.listen(port,  () => {
     console.log(`Server is running on http://192.168.160.29:${port}`);
 });
+
+
