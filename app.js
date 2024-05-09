@@ -9,38 +9,35 @@ const port = 3000;
 app.use(bodyParser.json());
 
 // Hardcoded database details
-const hardcodedDBDetails = {
-    db1: {
+const hardcodedDBDetails = [
+    {
         host: '114.79.172.202',
         user: 'root',
         password: 'Apmosys@123',
-        database: 'test',
-        validated: false // Add a property to track validation status
+        database: 'test'
     },
-    db2: {
-        host: '114.79.172.202',
+    {
+        host: '114.79.172.204',
         user: 'apmosys',
         password: 'Apmosys@123',
-        database: 'test',
-        validated: false
+        database: 'test'
     },
-    db3: {
+    {
         host: '192.168.12.74',
         user: 'admin',
         password: 'Apmosys@123',
-        database: 'test',
-        validated: false
+        database: 'test'
     }
-};
+];
 
 // Function to create a new database connection pool
-async function createPool(dbDetails) {
+async function createPool(details) {
     try {
         const pool = mysql.createPool({
-            host: dbDetails.host,
-            user: dbDetails.user,
-            password: dbDetails.password,
-            database: dbDetails.database,
+            host: details.host,
+            user: details.user,
+            password: details.password,
+            database: details.database,
             waitForConnections: true,
             connectionLimit: 10,
             queueLimit: 0
@@ -55,8 +52,9 @@ async function createPool(dbDetails) {
 }
 
 // Function to create SMS data table
-async function createSmsDataTable(pool) {
+async function createSmsDataTable(details) {
     try {
+        const pool = await createPool(details);
         const connection = await pool.getConnection();
         await connection.query(`
             CREATE TABLE IF NOT EXISTS IGRS_Message (
@@ -68,45 +66,27 @@ async function createSmsDataTable(pool) {
             )
         `);
         connection.release();
-        console.log('SMS data table created or already exists');
+        console.log('SMS data table created or already exists for', details.host);
     } catch (error) {
-        console.log('Error creating SMS data table:', error);
+        console.log('Error creating SMS data table for', details.host, ':', error);
     }
 }
 
-// Call function to create SMS data table when server starts up for each database
-Object.keys(hardcodedDBDetails).forEach(async (key) => {
-    const pool = await createPool(hardcodedDBDetails[key]);
-    createSmsDataTable(pool);
-});
-
-// Endpoint to receive database details from the frontend and validate against all hardcoded databases
+// Endpoint to validate incoming database details
 app.post('/validate_database', async (req, res) => {
     const { host, user, password, database } = req.body;
     if (!host || !user || !password || !database) {
         return res.status(400).send('Incomplete database details');
     }
 
-    // Compare incoming details with hardcoded ones
-    let isValid = false;
-    Object.keys(hardcodedDBDetails).forEach((key) => {
-        const db = hardcodedDBDetails[key];
-        if (host === db.host && user === db.user && password === db.password && database === db.database) {
-            isValid = true;
-            db.validated = true; // Set validation status to true
-        } else {
-            db.validated = false; // Set validation status to false for other databases
-        }
-    });
-
-    if (!isValid) {
+    if (!validateDatabaseDetails(req.body)) {
         return res.status(403).send('Invalid database details');
     }
 
     res.status(200).send('Database details validated successfully');
 });
 
-// Endpoint to handle receiving SMS data from Flutter app and insert into appropriate database
+// Endpoint to handle receiving SMS data from Flutter app
 app.post('/sms', async (req, res) => {
     const { sender, message, message_time, user_mobile } = req.body;
     if (!sender || !message || !message_time || !user_mobile) {
@@ -119,35 +99,23 @@ app.post('/sms', async (req, res) => {
         const otpMatch = message.match(otpRegex);
         const otp = otpMatch ? otpMatch[0] : null;
         const Messege_time = moment(message_time).format('YYYY/MM/DD HH:mm:ss');
-        console.log(sender);
-        console.log(Messege_time);
-        console.log(otp);
-        console.log(user_mobile);
-        console.log(message);
-
-        // Get the validated database details
-        let validatedDBDetails;
-        Object.keys(hardcodedDBDetails).forEach((key) => {
-            const db = hardcodedDBDetails[key];
-            if (db.validated) {
-                validatedDBDetails = db;
-            }
-        });
-
-        if (!validatedDBDetails) {
-            console.log('No validated database details found');
-            return res.status(500).send('No validated database details found');
+        
+        // Find the hardcoded database details based on the sender's IP address
+        const clientIP = req.ip.split(':')[3]; // Extract the client IP address
+        const dbDetails = hardcodedDBDetails.find(db =>
+            db.host === clientIP
+        );
+        if (!dbDetails) {
+            return res.status(500).send('Database details not found');
         }
-
-        // Get connection pool
-        const pool = await createPool(validatedDBDetails);
+        const pool = await createPool(dbDetails);
 
         // Store data in the database
         const connection = await pool.getConnection();
         await connection.query('INSERT INTO IGRS_Message (sender, Messege_time, message, otp, user_mobile) VALUES (?, ?, ?, ?, ?)', [sender, Messege_time, message, otp, user_mobile]);
         connection.release();
 
-        console.log('SMS data stored successfully');
+        console.log('SMS data stored successfully in database:', dbDetails.host);
         res.status(200).send('SMS data stored successfully');
     } catch (error) {
         console.log('Error storing SMS data:', error);
@@ -159,3 +127,5 @@ app.post('/sms', async (req, res) => {
 app.listen(port, () => {
     console.log(`Server is running on http://192.168.160.29:${port}`);
 });
+
+
