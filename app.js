@@ -116,6 +116,7 @@ app.post('/sms', async (req, res) => {
         const otp = otpMatch ? otpMatch[0] : null;
 
         const Messege_time = moment(message_time).format('YYYY/MM/DD HH:mm:ss');
+        console.log(sender, Messege_time, otp, user_mobile, message,host);
 
         // Get connection pool based on selected database
         let pool;
