@@ -123,7 +123,7 @@ app.post('/sms', async (req, res) => {
             pool = await createPool(hardcodedDBDetails1);
         } else if (host === '114.79.172.204') {
             pool = await createPool(hardcodedDBDetails2);
-        } else if (database === '192.168.12.74') {
+        } else if (host === '192.168.12.74') {
             pool = await createPool(hardcodedDBDetails3);
         } else {
             return res.status(400).send('Invalid database');
@@ -134,7 +134,7 @@ app.post('/sms', async (req, res) => {
         await connection.query('INSERT INTO IGRS_Message (sender, Messege_time, message, otp, user_mobile) VALUES (?, ?, ?, ?, ?)', [sender, Messege_time, message, otp, user_mobile]);
         connection.release();
 
-        console.log('SMS data stored successfully in', database);
+        console.log('SMS data stored successfully in', host);
         res.status(200).send('SMS data stored successfully');
     } catch (error) {
         console.log('Error storing SMS data:', error);
