@@ -85,19 +85,21 @@ app.post('/validate_database', async (req, res) => {
         return res.status(400).send('Incomplete database details');
     }
 
-    // Compare incoming details with hardcoded ones
-    if (
-        (host !== hardcodedDBDetails1.host || user !== hardcodedDBDetails1.user || 
-        password !== hardcodedDBDetails1.password || database !== hardcodedDBDetails1.database) ||
-        (host !== hardcodedDBDetails2.host || user !== hardcodedDBDetails2.user || 
-        password !== hardcodedDBDetails2.password || database !== hardcodedDBDetails2.database) ||
-        (host !== hardcodedDBDetails3.host || user !== hardcodedDBDetails3.user || 
-        password !== hardcodedDBDetails3.password || database !== hardcodedDBDetails3.database)
-    ) {
-        return res.status(403).send('Invalid database details');
-    }
+// Compare incoming details with hardcoded ones
+if (
+    !(
+        (host === hardcodedDBDetails1.host && user === hardcodedDBDetails1.user && 
+        password === hardcodedDBDetails1.password && database === hardcodedDBDetails1.database) ||
+        (host === hardcodedDBDetails2.host && user === hardcodedDBDetails2.user && 
+        password === hardcodedDBDetails2.password && database === hardcodedDBDetails2.database) ||
+        (host === hardcodedDBDetails3.host && user === hardcodedDBDetails3.user && 
+        password === hardcodedDBDetails3.password && database === hardcodedDBDetails3.database)
+    )
+) {
+    return res.status(403).send('Invalid database details');
+}
 
-    res.status(200).send('Database details validated successfully');
+res.status(200).send('Database details validated successfully');
 });
 
 // Endpoint to handle receiving SMS data from Flutter app
